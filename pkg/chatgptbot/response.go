@@ -4,17 +4,12 @@ import "time"
 
 type Conversation struct {
 	lastMessageTime time.Time
-	messages        []ChatRecord
-}
-
-type ChatRecord struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	messages        []Message
 }
 
 type Request struct {
-	Model    string       `json:"model"`
-	Messages []ChatRecord `json:"messages"`
+	Model    string    `json:"model"`
+	Messages []Message `json:"messages"`
 }
 
 type ChatCompletion struct {

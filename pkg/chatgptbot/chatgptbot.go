@@ -149,7 +149,7 @@ func (s *Service) MessageCommandResetHandler(update tgbotapi.Update) string {
 
 // MessageCommandStateHandler возвращает информацию о текущем состоянии бота.
 func (s *Service) MessageCommandStateHandler(update tgbotapi.Update) string {
-	return fmt.Sprintf("Model: %s\nMessages retention period: %d min\nMessages: %+v", s.model, s.msgRetentionPeriod, s.buildContext(update))
+	return fmt.Sprintf("Model: %s\nMessages retention period: %d min\nMessages: %+v", s.model, s.msgRetentionPeriod, s.getContext(update))
 }
 
 // MessageCommandSetModelHandler изменяет используемую модель.
@@ -164,9 +164,9 @@ func (s *Service) MessageCommandSetModelHandler(update tgbotapi.Update) string {
 func (s *Service) MessageTextHandler(update tgbotapi.Update) tgbotapi.Chattable {
 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 
-	messages := s.buildContext(update)
+	messages := s.getContext(update)
 	log.Printf("Previous messages:\n%+v", messages)
-	messages = append(messages, ChatRecord{
+	messages = append(messages, Message{
 		Role:    "user",
 		Content: update.Message.Text,
 	})
@@ -189,7 +189,7 @@ func (s *Service) MessageTextHandler(update tgbotapi.Update) tgbotapi.Chattable 
 	log.Printf("Open AI response:\n%v", resp)
 	answer := chatCompletion.Choices[0].Message.Content
 
-	messages = append(messages, ChatRecord{
+	messages = append(messages, Message{
 		Role:    "assistant",
 		Content: answer,
 	})
@@ -200,8 +200,8 @@ func (s *Service) MessageTextHandler(update tgbotapi.Update) tgbotapi.Chattable 
 	return msg
 }
 
-// buildContext получает предыдущие сообщения по User ID.
-func (s *Service) buildContext(update tgbotapi.Update) []ChatRecord {
+// getContext получает предыдущие сообщения по User ID.
+func (s *Service) getContext(update tgbotapi.Update) []Message {
 	userID := update.Message.From.ID
 
 	conversation, ok := s.context[userID]
@@ -218,7 +218,7 @@ func (s *Service) buildContext(update tgbotapi.Update) []ChatRecord {
 }
 
 // saveContext сохраняет текущий контекст разговора.
-func (s *Service) saveContext(update tgbotapi.Update, messages []ChatRecord) {
+func (s *Service) saveContext(update tgbotapi.Update, messages []Message) {
 	userID := update.Message.From.ID
 
 	s.context[userID] = Conversation{

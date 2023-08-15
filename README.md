@@ -95,5 +95,4 @@ sudo systemctl status go-chatgpt-telegram-bot
 sudo systemctl enable go-chatgpt-telegram-bot
 ```
 
-That's it! Your Golang program should now be running on your VDS and will automatically start up whenever your server
-reboots.
+That's it! Your Golang program should now be running on your VDS and will automatically start up whenever your server reboots.
