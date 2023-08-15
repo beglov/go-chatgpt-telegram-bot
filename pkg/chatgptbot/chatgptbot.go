@@ -2,6 +2,7 @@ package chatgptbot
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/go-resty/resty/v2"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"log"
@@ -14,6 +15,7 @@ type Service struct {
 	telegramUserIds    []int
 	context            map[int64]Conversation
 	msgRetentionPeriod int
+	model              string
 }
 
 func New(telegramBotToken string, openaiAPIKey string, telegramUserIds []int, retentionPeriod int) (*Service, error) {
@@ -31,6 +33,7 @@ func New(telegramBotToken string, openaiAPIKey string, telegramUserIds []int, re
 		telegramUserIds:    telegramUserIds,
 		context:            make(map[int64]Conversation),
 		msgRetentionPeriod: retentionPeriod,
+		model:              "gpt-3.5-turbo",
 	}
 
 	return &s, nil
@@ -116,6 +119,10 @@ func (s *Service) MessageCommandHandler(update tgbotapi.Update) tgbotapi.Chattab
 		msg.Text = s.MessageCommandHelpHandler()
 	case "reset":
 		msg.Text = s.MessageCommandResetHandler(update)
+	case "state":
+		msg.Text = s.MessageCommandStateHandler(update)
+	case "model":
+		msg.Text = s.MessageCommandSetModelHandler(update)
 	default:
 		msg.Text = "Bot doesn't know this command"
 	}
@@ -126,8 +133,10 @@ func (s *Service) MessageCommandHandler(update tgbotapi.Update) tgbotapi.Chattab
 // MessageCommandHelpHandler returns help message.
 func (s *Service) MessageCommandHelpHandler() string {
 	return `
-        Available commands:
+		Available commands:
 			reset - resets the conversation context
+			state - shows current bot state
+			model arg - sets the model used (gpt-4, gpt-3.5-turbo and others)
     `
 }
 
@@ -136,6 +145,18 @@ func (s *Service) MessageCommandResetHandler(update tgbotapi.Update) string {
 	userID := update.Message.From.ID
 	delete(s.context, userID)
 	return "Conversation context reset"
+}
+
+// MessageCommandStateHandler возвращает информацию о текущем состоянии бота.
+func (s *Service) MessageCommandStateHandler(update tgbotapi.Update) string {
+	return fmt.Sprintf("Model: %s\nMessages retention period: %d min\nMessages: %+v", s.model, s.msgRetentionPeriod, s.buildContext(update))
+}
+
+// MessageCommandSetModelHandler изменяет используемую модель.
+func (s *Service) MessageCommandSetModelHandler(update tgbotapi.Update) string {
+	model := update.Message.CommandArguments()
+	s.model = model
+	return "Model changed to " + model
 }
 
 // MessageTextHandler выполняем обработку входящего сообщения.
@@ -149,7 +170,7 @@ func (s *Service) MessageTextHandler(update tgbotapi.Update) tgbotapi.Chattable 
 		Role:    "user",
 		Content: update.Message.Text,
 	})
-	request := Request{Model: "gpt-3.5-turbo", Messages: messages}
+	request := Request{Model: s.model, Messages: messages}
 
 	chatCompletion := &ChatCompletion{}
 
@@ -165,7 +186,6 @@ func (s *Service) MessageTextHandler(update tgbotapi.Update) tgbotapi.Chattable 
 		return msg
 	}
 
-	//log.Print("Open AI response:", resp)
 	log.Printf("Open AI response:\n%v", resp)
 	answer := chatCompletion.Choices[0].Message.Content
 
