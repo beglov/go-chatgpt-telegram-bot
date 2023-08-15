@@ -22,19 +22,12 @@ func main() {
 func new() *server {
 	godotenv.Load(".env") //nolint:errcheck
 
-	telegramBotToken := os.Getenv("TELEGRAM_BOT_TOKEN")
-	if telegramBotToken == "" {
-		log.Fatal("TELEGRAM_BOT_TOKEN is blank")
-	}
+	telegramBotToken := getTelegramBotToken()
+	openaiAPIKey := getOpenaiAPIKey()
+	telegramUserIds := getTelegramUserIds()
+	retentionPeriod := getMessagesRetentionPeriod()
 
-	openaiAPIKey := os.Getenv("OPENAI_API_KEY")
-	if openaiAPIKey == "" {
-		log.Fatal("OPENAI_API_KEY is blank")
-	}
-
-	telegramUserIds := getTelegramUserIds(os.Getenv("TELEGRAM_USER_IDS"))
-
-	bot, err := chatgptbot.New(telegramBotToken, openaiAPIKey, telegramUserIds)
+	bot, err := chatgptbot.New(telegramBotToken, openaiAPIKey, telegramUserIds, retentionPeriod)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -48,7 +41,24 @@ func new() *server {
 	}
 }
 
-func getTelegramUserIds(telegramUserIds string) []int {
+func getTelegramBotToken() string {
+	telegramBotToken := os.Getenv("TELEGRAM_BOT_TOKEN")
+	if telegramBotToken == "" {
+		log.Fatal("TELEGRAM_BOT_TOKEN is blank")
+	}
+	return telegramBotToken
+}
+
+func getOpenaiAPIKey() string {
+	openaiAPIKey := os.Getenv("OPENAI_API_KEY")
+	if openaiAPIKey == "" {
+		log.Fatal("OPENAI_API_KEY is blank")
+	}
+	return openaiAPIKey
+}
+
+func getTelegramUserIds() []int {
+	telegramUserIds := os.Getenv("TELEGRAM_USER_IDS")
 	if telegramUserIds == "" {
 		return make([]int, 0)
 	}
@@ -66,6 +76,20 @@ func getTelegramUserIds(telegramUserIds string) []int {
 	}
 
 	return intSlice
+}
+
+func getMessagesRetentionPeriod() int {
+	retentionPeriod := os.Getenv("MESSAGES_RETENTION_PERIOD")
+	if retentionPeriod == "" {
+		retentionPeriod = "15"
+	}
+
+	i, err := strconv.Atoi(retentionPeriod)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return i
 }
 
 // run запускает бота.

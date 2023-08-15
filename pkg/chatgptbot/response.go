@@ -1,5 +1,17 @@
 package chatgptbot
 
+import "time"
+
+type Conversation struct {
+	lastMessageTime time.Time
+	messages        []Message
+}
+
+type Request struct {
+	Model    string    `json:"model"`
+	Messages []Message `json:"messages"`
+}
+
 type ChatCompletion struct {
 	ID      string    `json:"id"`
 	Object  string    `json:"object"`

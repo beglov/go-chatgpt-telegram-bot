@@ -2,18 +2,23 @@ package chatgptbot
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/go-resty/resty/v2"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"log"
+	"time"
 )
 
 type Service struct {
-	Bot             *tgbotapi.BotAPI
-	client          *resty.Client
-	telegramUserIds []int
+	Bot                *tgbotapi.BotAPI
+	client             *resty.Client
+	telegramUserIds    []int
+	context            map[int64]Conversation
+	msgRetentionPeriod int
+	model              string
 }
 
-func New(telegramBotToken string, openaiAPIKey string, telegramUserIds []int) (*Service, error) {
+func New(telegramBotToken string, openaiAPIKey string, telegramUserIds []int, retentionPeriod int) (*Service, error) {
 	bot, err := tgbotapi.NewBotAPI(telegramBotToken)
 	if err != nil {
 		return nil, err
@@ -23,9 +28,12 @@ func New(telegramBotToken string, openaiAPIKey string, telegramUserIds []int) (*
 	client.SetHeader("Authorization", "Bearer "+openaiAPIKey)
 
 	s := Service{
-		Bot:             bot,
-		client:          client,
-		telegramUserIds: telegramUserIds,
+		Bot:                bot,
+		client:             client,
+		telegramUserIds:    telegramUserIds,
+		context:            make(map[int64]Conversation),
+		msgRetentionPeriod: retentionPeriod,
+		model:              "gpt-3.5-turbo",
 	}
 
 	return &s, nil
@@ -107,6 +115,14 @@ func (s *Service) MessageCommandHandler(update tgbotapi.Update) tgbotapi.Chattab
 	switch update.Message.Command() {
 	case "start":
 		msg.Text = "Ask me anything you want"
+	case "help":
+		msg.Text = s.MessageCommandHelpHandler()
+	case "reset":
+		msg.Text = s.MessageCommandResetHandler(update)
+	case "state":
+		msg.Text = s.MessageCommandStateHandler(update)
+	case "model":
+		msg.Text = s.MessageCommandSetModelHandler(update)
 	default:
 		msg.Text = "Bot doesn't know this command"
 	}
@@ -114,23 +130,53 @@ func (s *Service) MessageCommandHandler(update tgbotapi.Update) tgbotapi.Chattab
 	return msg
 }
 
+// MessageCommandHelpHandler returns help message.
+func (s *Service) MessageCommandHelpHandler() string {
+	return `
+		Available commands:
+			reset - resets the conversation context
+			state - shows current bot state
+			model arg - sets the model used (gpt-4, gpt-3.5-turbo and others)
+    `
+}
+
+// MessageCommandResetHandler принудительно сбрасывает текущий контекст разговора.
+func (s *Service) MessageCommandResetHandler(update tgbotapi.Update) string {
+	userID := update.Message.From.ID
+	delete(s.context, userID)
+	return "Conversation context reset"
+}
+
+// MessageCommandStateHandler возвращает информацию о текущем состоянии бота.
+func (s *Service) MessageCommandStateHandler(update tgbotapi.Update) string {
+	return fmt.Sprintf("Model: %s\nMessages retention period: %d min\nMessages: %+v", s.model, s.msgRetentionPeriod, s.getContext(update))
+}
+
+// MessageCommandSetModelHandler изменяет используемую модель.
+func (s *Service) MessageCommandSetModelHandler(update tgbotapi.Update) string {
+	model := update.Message.CommandArguments()
+	s.model = model
+	return "Model changed to " + model
+}
+
 // MessageTextHandler выполняем обработку входящего сообщения.
 // Возвращает сообщение которое требуется отправить или nil, если отправлять ничего не требуется.
 func (s *Service) MessageTextHandler(update tgbotapi.Update) tgbotapi.Chattable {
 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 
-	messages := []map[string]interface{}{
-		{"role": "user", "content": update.Message.Text},
-	}
+	messages := s.getContext(update)
+	log.Printf("Previous messages:\n%+v", messages)
+	messages = append(messages, Message{
+		Role:    "user",
+		Content: update.Message.Text,
+	})
+	request := Request{Model: s.model, Messages: messages}
 
 	chatCompletion := &ChatCompletion{}
 
 	// https://platform.openai.com/docs/api-reference/chat/create
 	resp, err := s.client.R().
-		SetBody(map[string]interface{}{
-			"messages": messages,
-			"model":    "gpt-3.5-turbo",
-		}).
+		SetBody(request).
 		SetResult(chatCompletion).
 		Post("https://api.openai.com/v1/chat/completions")
 
@@ -140,10 +186,45 @@ func (s *Service) MessageTextHandler(update tgbotapi.Update) tgbotapi.Chattable 
 		return msg
 	}
 
-	log.Print(resp)
-	msg.Text = chatCompletion.Choices[0].Message.Content
+	log.Printf("Open AI response:\n%v", resp)
+	answer := chatCompletion.Choices[0].Message.Content
+
+	messages = append(messages, Message{
+		Role:    "assistant",
+		Content: answer,
+	})
+	s.saveContext(update, messages)
+
+	msg.Text = answer
 
 	return msg
+}
+
+// getContext получает предыдущие сообщения по User ID.
+func (s *Service) getContext(update tgbotapi.Update) []Message {
+	userID := update.Message.From.ID
+
+	conversation, ok := s.context[userID]
+	if !ok {
+		return nil
+	}
+
+	deadlineTime := conversation.lastMessageTime.Add(time.Minute * time.Duration(s.msgRetentionPeriod))
+	if time.Now().After(deadlineTime) {
+		return nil
+	}
+
+	return conversation.messages
+}
+
+// saveContext сохраняет текущий контекст разговора.
+func (s *Service) saveContext(update tgbotapi.Update, messages []Message) {
+	userID := update.Message.From.ID
+
+	s.context[userID] = Conversation{
+		lastMessageTime: time.Now(),
+		messages:        messages,
+	}
 }
 
 // Auth проверяет может ли пользователь взаимодействовать с ботом.
