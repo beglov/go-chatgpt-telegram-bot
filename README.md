@@ -20,11 +20,16 @@ Run bot:
 go run cmd/server/server.go
 ```
 
+The bot maintains the conversation context for a specific period of time.
+By default, this value is set to 15 minutes from the arrival of the last message, but it can be changed using the
+MESSAGES_RETENTION_PERIOD environment variable, which is specified in minutes.
+The command /reset can be used to forcibly reset the context.
+
 ## Deploy to VDS
 
 To deploy a Golang program to a VDS (Virtual Dedicated Server), you can follow these steps:
 
-1. Build your golang program - Before deploying your program, you need to build it. 
+1. Build your golang program - Before deploying your program, you need to build it.
    To do that, first, make sure you have golang installed on your local machine.
    Then, navigate to your project directory and run the following command:
 
@@ -90,4 +95,5 @@ sudo systemctl status go-chatgpt-telegram-bot
 sudo systemctl enable go-chatgpt-telegram-bot
 ```
 
-That's it! Your Golang program should now be running on your VDS and will automatically start up whenever your server reboots.
+That's it! Your Golang program should now be running on your VDS and will automatically start up whenever your server
+reboots.

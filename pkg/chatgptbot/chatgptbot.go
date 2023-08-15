@@ -9,13 +9,14 @@ import (
 )
 
 type Service struct {
-	Bot             *tgbotapi.BotAPI
-	client          *resty.Client
-	telegramUserIds []int
-	context         map[int64]Conversation
+	Bot                *tgbotapi.BotAPI
+	client             *resty.Client
+	telegramUserIds    []int
+	context            map[int64]Conversation
+	msgRetentionPeriod int
 }
 
-func New(telegramBotToken string, openaiAPIKey string, telegramUserIds []int) (*Service, error) {
+func New(telegramBotToken string, openaiAPIKey string, telegramUserIds []int, retentionPeriod int) (*Service, error) {
 	bot, err := tgbotapi.NewBotAPI(telegramBotToken)
 	if err != nil {
 		return nil, err
@@ -25,10 +26,11 @@ func New(telegramBotToken string, openaiAPIKey string, telegramUserIds []int) (*
 	client.SetHeader("Authorization", "Bearer "+openaiAPIKey)
 
 	s := Service{
-		Bot:             bot,
-		client:          client,
-		telegramUserIds: telegramUserIds,
-		context:         make(map[int64]Conversation),
+		Bot:                bot,
+		client:             client,
+		telegramUserIds:    telegramUserIds,
+		context:            make(map[int64]Conversation),
+		msgRetentionPeriod: retentionPeriod,
 	}
 
 	return &s, nil
@@ -187,7 +189,7 @@ func (s *Service) buildContext(update tgbotapi.Update) []ChatRecord {
 		return nil
 	}
 
-	deadlineTime := conversation.lastMessageTime.Add(time.Minute * 15)
+	deadlineTime := conversation.lastMessageTime.Add(time.Minute * time.Duration(s.msgRetentionPeriod))
 	if time.Now().After(deadlineTime) {
 		return nil
 	}
