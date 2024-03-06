@@ -61,12 +61,20 @@ After=network.target
 [Service]
 User=deploy
 ExecStart=/home/deploy/go-chatgpt-telegram-bot
+
 Environment=TELEGRAM_BOT_TOKEN=secret
 Environment=OPENAI_API_KEY=secret
 Environment=TELEGRAM_USER_IDS=
 
+Restart=on-failure
+RestartSec=1
+
 [Install]
 WantedBy=multi-user.target
+
+# See these pages for lots of options:
+#   https://www.freedesktop.org/software/systemd/man/systemd.service.html
+#   https://www.freedesktop.org/software/systemd/man/systemd.exec.html
 ```
 
 _Make sure to replace the environment variables with your own values._
