@@ -1,0 +1,6 @@
+---
+- name: Deploy ChatGPT Telegram Bot
+  hosts: all
+  become: yes
+  roles:
+    - { role: bot }

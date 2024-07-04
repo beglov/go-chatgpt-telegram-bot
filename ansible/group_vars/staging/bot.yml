@@ -1,0 +1,3 @@
+telegram_bot_token: secret
+openai_api_key: secret
+telegram_user_ids:
