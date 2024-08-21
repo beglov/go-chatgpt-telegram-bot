@@ -1,21 +1,22 @@
 ---
 - name: Update system packages
-  apt:
-    update_cache: yes
+  ansible.builtin.apt:
+    update_cache: true
     upgrade: dist
 
 - name: Copy binary to remote host
-  copy:
+  ansible.builtin.copy:
     src: ../../../go-chatgpt-telegram-bot
     dest: /home/deploy/go-chatgpt-telegram-bot
     owner: deploy
     group: deploy
-    mode: '0755'
+    mode: "0755"
 
 - name: Copy systemd service file
-  template:
+  ansible.builtin.template:
     src: go-chatgpt-telegram-bot.service.j2
     dest: /etc/systemd/system/go-chatgpt-telegram-bot.service
+    mode: "0644"
 
 - name: Reload systemd to recognize new service
   ansible.builtin.systemd_service:
