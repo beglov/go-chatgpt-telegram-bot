@@ -66,15 +66,16 @@ func (s *Service) Start() {
 	}
 }
 
-// Handler выполняем обработку входящего сообщения.
+// Handler выполняет обработку входящего сообщения.
 // Возвращает сообщение которое требуется отправить или nil, если отправлять ничего не требуется.
 func (s *Service) Handler(update tgbotapi.Update) (msg tgbotapi.Chattable) {
 	if s.Bot.Debug {
 		updateJSON, err := json.MarshalIndent(update, "", "  ")
 		if err != nil {
 			log.Printf("Error while marshal update: %s", err.Error())
+		} else {
+			log.Printf("Update received:\n%s\n", string(updateJSON))
 		}
-		log.Printf("Update received:\n%s\n", string(updateJSON))
 	}
 
 	switch {
@@ -87,7 +88,7 @@ func (s *Service) Handler(update tgbotapi.Update) (msg tgbotapi.Chattable) {
 	return msg
 }
 
-// MessageHandler выполняем обработку входящего сообщения.
+// MessageHandler выполняет обработку входящего сообщения.
 // Возвращает сообщение которое требуется отправить или nil, если отправлять ничего не требуется.
 func (s *Service) MessageHandler(update tgbotapi.Update) (msg tgbotapi.Chattable) {
 	msg = s.Auth(update)
@@ -107,7 +108,7 @@ func (s *Service) MessageHandler(update tgbotapi.Update) (msg tgbotapi.Chattable
 	return msg
 }
 
-// MessageCommandHandler выполняем обработку входящего сообщения.
+// MessageCommandHandler выполняет обработку входящего сообщения.
 // Возвращает сообщение которое требуется отправить или nil, если отправлять ничего не требуется.
 func (s *Service) MessageCommandHandler(update tgbotapi.Update) tgbotapi.Chattable {
 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
@@ -159,7 +160,7 @@ func (s *Service) MessageCommandSetModelHandler(update tgbotapi.Update) string {
 	return "Model changed to " + model
 }
 
-// MessageTextHandler выполняем обработку входящего сообщения.
+// MessageTextHandler выполняет обработку входящего сообщения.
 // Возвращает сообщение которое требуется отправить или nil, если отправлять ничего не требуется.
 func (s *Service) MessageTextHandler(update tgbotapi.Update) tgbotapi.Chattable {
 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
